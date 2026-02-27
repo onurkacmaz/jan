@@ -1,0 +1,4 @@
+name: test
+command: /bin/sh
+args: ["-c", "echo out; echo err 1>&2"]
+restart_policy: always
