@@ -9,6 +9,20 @@
 
 ## Install
 
+One-line install (curl):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/onurkacmaz/jan/main/install.sh | sh
+```
+
+System-wide one-line install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/onurkacmaz/jan/main/install.sh | sh -s -- --system
+```
+
+Remote installer expects release assets named `jan-<os>-<arch>` (for example `jan-linux-amd64`, `jan-darwin-arm64`).
+
 Build binary in project root:
 
 ```bash
@@ -28,17 +42,21 @@ Or run directly without build:
 go run ./cmd/jan --help
 ```
 
-Installer script (recommended):
+Build/install with Makefile:
 
 ```bash
-chmod +x scripts/install.sh
-./scripts/install.sh
+make build
+make install
+make install-system
+make uninstall
+make uninstall-system
 ```
 
-System-wide install:
+One-line uninstall (curl installer):
 
 ```bash
-./scripts/install.sh --system
+curl -fsSL https://raw.githubusercontent.com/onurkacmaz/jan/main/install.sh | sh -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/onurkacmaz/jan/main/install.sh | sh -s -- --system --uninstall
 ```
 
 ## Quick Start (under 10 minutes)
