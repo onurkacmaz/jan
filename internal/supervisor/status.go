@@ -12,6 +12,8 @@ type Status struct {
 	Service      string
 	Running      bool
 	PID          int
+	DaemonPID    int
+	ChildPID     int
 	LastExitCode *int
 }
 
@@ -20,36 +22,57 @@ func ServiceStatus(service string) (Status, error) {
 		Service: service,
 	}
 
-	path := pidFilePath(service)
-	raw, err := os.ReadFile(path)
+	daemonPID, daemonRunning, err := activePIDFromOptionalFile(pidFilePath(service))
 	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return st, fmt.Errorf("read pid file %q: %w", path, err)
-		}
-		attachLastExitCode(&st, service)
-		return st, nil
+		return st, err
 	}
 
-	pidText := strings.TrimSpace(string(raw))
-	pid, parseErr := strconv.Atoi(pidText)
-	if parseErr != nil || pid <= 0 {
-		attachLastExitCode(&st, service)
-		return st, nil
-	}
-
-	running, runErr := isPIDRunning(pid)
-	if runErr != nil {
-		return st, fmt.Errorf("check pid %d from %q: %w", pid, path, runErr)
-	}
-
-	if running {
+	if daemonRunning {
 		st.Running = true
-		st.PID = pid
+		st.PID = daemonPID
+		st.DaemonPID = daemonPID
+
+		childPID, childRunning, childErr := activePIDFromOptionalFile(childPIDFilePath(service))
+		if childErr != nil {
+			return st, childErr
+		}
+		if childRunning {
+			st.ChildPID = childPID
+		}
+
 		return st, nil
 	}
 
 	attachLastExitCode(&st, service)
 	return st, nil
+}
+
+func activePIDFromOptionalFile(path string) (pid int, running bool, err error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, false, nil
+		}
+		return 0, false, fmt.Errorf("read pid file %q: %w", path, err)
+	}
+
+	pidText := strings.TrimSpace(string(raw))
+	pid, parseErr := strconv.Atoi(pidText)
+	if parseErr != nil || pid <= 0 {
+		_ = os.Remove(path)
+		return 0, false, nil
+	}
+
+	running, runErr := isPIDRunning(pid)
+	if runErr != nil {
+		return 0, false, fmt.Errorf("check pid %d from %q: %w", pid, path, runErr)
+	}
+	if !running {
+		_ = os.Remove(path)
+		return pid, false, nil
+	}
+
+	return pid, true, nil
 }
 
 func attachLastExitCode(st *Status, service string) {

@@ -14,6 +14,7 @@ command: /usr/bin/sleep
 args:
   - "5"
 workdir: /tmp
+log_path: /tmp/jan-demo.log
 env:
   APP_ENV: dev
   LOG_LEVEL: info
@@ -39,6 +40,9 @@ backoff_ms: 500
 	if cfg.Workdir != "/tmp" {
 		t.Fatalf("Workdir = %q, want %q", cfg.Workdir, "/tmp")
 	}
+	if cfg.LogPath != "/tmp/jan-demo.log" {
+		t.Fatalf("LogPath = %q, want %q", cfg.LogPath, "/tmp/jan-demo.log")
+	}
 	if cfg.Env["APP_ENV"] != "dev" || cfg.Env["LOG_LEVEL"] != "info" {
 		t.Fatalf("Env = %#v, unexpected values", cfg.Env)
 	}
@@ -61,6 +65,7 @@ name: jan-demo
 command: /bin/echo
 args: ["hello"]
 workdir: /tmp
+log_path: /tmp/jan-load.log
 env:
   HELLO: world
 restart_policy: always
@@ -79,6 +84,9 @@ backoff_ms: 200
 
 	if cfg.RestartPolicy != RestartAlways {
 		t.Fatalf("RestartPolicy = %q, want %q", cfg.RestartPolicy, RestartAlways)
+	}
+	if cfg.LogPath != "/tmp/jan-load.log" {
+		t.Fatalf("LogPath = %q, want %q", cfg.LogPath, "/tmp/jan-load.log")
 	}
 }
 
@@ -130,6 +138,25 @@ backoff_ms: 0
 
 	_, err := Parse(raw)
 	assertErrContains(t, err, "max_retries")
+}
+
+func TestParseTrimsLogPath(t *testing.T) {
+	raw := []byte(`
+name: jan-demo
+command: /bin/echo
+log_path: "  /tmp/jan-trim.log   "
+restart_policy: never
+max_retries: 0
+backoff_ms: 0
+`)
+
+	cfg, err := Parse(raw)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	if cfg.LogPath != "/tmp/jan-trim.log" {
+		t.Fatalf("LogPath = %q, want %q", cfg.LogPath, "/tmp/jan-trim.log")
+	}
 }
 
 func assertErrContains(t *testing.T, err error, field string) {

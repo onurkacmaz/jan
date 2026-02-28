@@ -53,7 +53,7 @@ func Run(ctx context.Context, cfg *config.Config) error {
 	}
 	defer releaseLock()
 
-	logFile, err := logger.OpenServiceLog(cfg.Name)
+	logFile, err := logger.OpenServiceLog(cfg.Name, cfg.LogPath)
 	if err != nil {
 		return fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -249,8 +249,6 @@ func mergedEnv(extra map[string]string) []string {
 
 func setRunningState(service string, pid int, retryCount int) {
 	stateMu.Lock()
-	defer stateMu.Unlock()
-
 	state = State{
 		Service:    sanitizeServiceName(service),
 		Pid:        pid,
@@ -259,6 +257,9 @@ func setRunningState(service string, pid int, retryCount int) {
 		LastError:  "",
 		RetryCount: retryCount,
 	}
+	stateMu.Unlock()
+
+	_ = writeChildPID(service, pid)
 }
 
 func setRetryCount(retryCount int) {
@@ -270,8 +271,6 @@ func setRetryCount(retryCount int) {
 
 func updateExitState(service string, ps *os.ProcessState, err error) {
 	stateMu.Lock()
-	defer stateMu.Unlock()
-
 	code := -1
 	if ps != nil {
 		code = ps.ExitCode()
@@ -286,8 +285,10 @@ func updateExitState(service string, ps *os.ProcessState, err error) {
 	} else {
 		state.LastError = ""
 	}
+	stateMu.Unlock()
 
 	_ = writeLastExitCode(service, code)
+	_ = removeChildPID(service)
 }
 
 func acquirePIDLock(service string) (func(), error) {
@@ -340,6 +341,11 @@ func pidFilePath(service string) string {
 func statusFilePath(service string) string {
 	safe := sanitizeServiceName(service)
 	return filepath.Join("/tmp", fmt.Sprintf("jan_%s.status", safe))
+}
+
+func childPIDFilePath(service string) string {
+	safe := sanitizeServiceName(service)
+	return filepath.Join("/tmp", fmt.Sprintf("jan_%s.child.pid", safe))
 }
 
 func sanitizeServiceName(service string) string {
@@ -432,6 +438,20 @@ func removePIDFileIfOwned(path string, ownerPID int) error {
 func writeLastExitCode(service string, code int) error {
 	path := statusFilePath(service)
 	return os.WriteFile(path, []byte(fmt.Sprintf("%d\n", code)), 0o644)
+}
+
+func writeChildPID(service string, pid int) error {
+	path := childPIDFilePath(service)
+	return os.WriteFile(path, []byte(fmt.Sprintf("%d\n", pid)), 0o644)
+}
+
+func removeChildPID(service string) error {
+	path := childPIDFilePath(service)
+	err := os.Remove(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }
 
 func readLastExitCode(service string) (*int, error) {

@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/ztrue/tracerr"
 	"gopkg.in/yaml.v3"
@@ -12,6 +13,7 @@ type Config struct {
 	Command       string            `yaml:"command"`
 	Args          []string          `yaml:"args"`
 	Workdir       string            `yaml:"workdir"`
+	LogPath       string            `yaml:"log_path"`
 	Env           map[string]string `yaml:"env"`
 	RestartPolicy string            `yaml:"restart_policy"`
 	MaxRetries    int               `yaml:"max_retries"`
@@ -52,6 +54,8 @@ func Parse(raw []byte) (*Config, error) {
 }
 
 func Validate(config *Config) error {
+	config.LogPath = strings.TrimSpace(config.LogPath)
+
 	if config.Name == "" {
 		return tracerr.New("name is required")
 	}

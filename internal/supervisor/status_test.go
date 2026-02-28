@@ -35,11 +35,11 @@ func TestServiceStatusShowsRunningPID(t *testing.T) {
 
 	ok := waitForCondition(2*time.Second, func() bool {
 		s, err := ServiceStatus(service)
-		return err == nil && s.Running && s.PID > 0
+		return err == nil && s.Running && s.DaemonPID > 0 && s.ChildPID > 0
 	})
 	if !ok {
 		st, _ := ServiceStatus(service)
-		t.Fatalf("status did not report running pid, got %+v", st)
+		t.Fatalf("status did not report running daemon/child pid, got %+v", st)
 	}
 
 	cancel()
@@ -81,6 +81,9 @@ func TestServiceStatusShowsStoppedLastExitCode(t *testing.T) {
 	if st.Running {
 		t.Fatalf("expected stopped status, got running: %+v", st)
 	}
+	if st.DaemonPID != 0 || st.ChildPID != 0 {
+		t.Fatalf("expected daemon/child pid to be zero in stopped state, got %+v", st)
+	}
 	if st.LastExitCode == nil {
 		t.Fatalf("expected last exit code, got nil: %+v", st)
 	}
@@ -106,6 +109,29 @@ func TestServiceStatusStoppedWithoutLastExitCode(t *testing.T) {
 	}
 }
 
+func TestServiceStatusDoesNotShowRunningForStalePID(t *testing.T) {
+	service := "status-stale"
+	cleanupServiceFiles(t, service)
+	defer cleanupServiceFiles(t, service)
+
+	stalePID := 999999
+	if err := os.WriteFile(pidFilePath(service), []byte(strconv.Itoa(stalePID)), 0o644); err != nil {
+		t.Fatalf("write stale pid file: %v", err)
+	}
+
+	st, err := ServiceStatus(service)
+	if err != nil {
+		t.Fatalf("ServiceStatus() error = %v", err)
+	}
+	if st.Running {
+		t.Fatalf("expected stale pid to be reported as stopped, got %+v", st)
+	}
+
+	if _, statErr := os.Stat(pidFilePath(service)); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected stale pid file to be removed, stat err=%v", statErr)
+	}
+}
+
 func cleanupServiceFiles(t *testing.T, service string) {
 	t.Helper()
 
@@ -124,5 +150,9 @@ func cleanupServiceFiles(t *testing.T, service string) {
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("remove %q: %v", path, err)
 		}
+	}
+	err := os.Remove(childPIDFilePath(service))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("remove %q: %v", childPIDFilePath(service), err)
 	}
 }

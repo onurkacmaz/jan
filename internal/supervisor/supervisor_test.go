@@ -447,6 +447,35 @@ func TestRunRemovesPIDFileOnExit(t *testing.T) {
 	}
 }
 
+func TestRunWritesLogsToCustomPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell command test is unix-specific")
+	}
+	cleanupServiceFiles(t, "custom-log-path")
+	defer cleanupServiceFiles(t, "custom-log-path")
+
+	logPath := filepath.Join(t.TempDir(), "nested", "custom.log")
+	cfg := &config.Config{
+		Name:          "custom-log-path",
+		Command:       "/bin/sh",
+		Args:          []string{"-c", "echo custom-log-line"},
+		RestartPolicy: config.RestartNever,
+		LogPath:       logPath,
+	}
+
+	if err := Run(context.Background(), cfg); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	raw, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("ReadFile(%q) error = %v", logPath, err)
+	}
+	if !strings.Contains(string(raw), "custom-log-line") {
+		t.Fatalf("custom log content missing, got %q", string(raw))
+	}
+}
+
 func waitForState(timeout time.Duration, predicate func(State) bool) (State, bool) {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
