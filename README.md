@@ -2,6 +2,8 @@
 
 `jan` is a small process supervisor written in Go.
 
+<img src="assets/jan-mascot.png" alt="Jan mascot" width="360" />
+
 ## Prerequisites
 
 - Go `1.25.0` (see `go.mod`)
