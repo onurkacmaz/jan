@@ -51,6 +51,41 @@ func TestE2EStartStatusStop(t *testing.T) {
 	}
 }
 
+func TestE2ERestart(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("daemon e2e is unix-specific")
+	}
+
+	bin := buildJanBinary(t)
+	service := fmt.Sprintf("jan-e2e-restart-%d", time.Now().UnixNano())
+	cfgPath := writeConfig(t, service)
+	t.Cleanup(func() { cleanupService(t, bin, cfgPath, service) })
+
+	if out, err := runJan(bin, "start", "-c", cfgPath); err != nil {
+		t.Fatalf("start failed: %v\n%s", err, out)
+	}
+
+	if ok := waitForCondition(6*time.Second, func() bool {
+		out, err := runJan(bin, "status", "-c", cfgPath)
+		return err == nil && strings.Contains(out, "status=running")
+	}); !ok {
+		out, _ := runJan(bin, "status", "-c", cfgPath)
+		t.Fatalf("status did not reach running state before restart, output=%q", out)
+	}
+
+	if out, err := runJan(bin, "restart", "-c", cfgPath); err != nil {
+		t.Fatalf("restart failed: %v\n%s", err, out)
+	}
+
+	if ok := waitForCondition(6*time.Second, func() bool {
+		out, err := runJan(bin, "status", "-c", cfgPath)
+		return err == nil && strings.Contains(out, "status=running")
+	}); !ok {
+		out, _ := runJan(bin, "status", "-c", cfgPath)
+		t.Fatalf("status did not reach running state after restart, output=%q", out)
+	}
+}
+
 func TestE2EStartDirectory(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("daemon e2e is unix-specific")

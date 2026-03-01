@@ -2,3 +2,4 @@
 /logs/
 /cmd/jan/logs/
 /internal/supervisor/logs/
+/dist/

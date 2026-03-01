@@ -130,6 +130,14 @@ jan stop -c <config.yaml>
 jan stop
 ```
 
+Restart daemonized service(s):
+
+```bash
+jan restart -c <config.yaml>
+jan restart -d <config_dir>
+jan restart
+```
+
 Show status:
 
 ```bash

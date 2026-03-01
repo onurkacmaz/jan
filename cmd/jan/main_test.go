@@ -75,6 +75,9 @@ func TestHelpCommand(t *testing.T) {
 	if !strings.Contains(out, "tail") {
 		t.Fatalf("help output missing tail command: %q", out)
 	}
+	if !strings.Contains(out, "restart") {
+		t.Fatalf("help output missing restart command: %q", out)
+	}
 }
 
 func TestVersionCommand(t *testing.T) {

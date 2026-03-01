@@ -89,7 +89,7 @@ func run(args []string) error {
 	if len(args) == 0 {
 		return fail(
 			exitCodeUsage,
-			"usage: jan <run|status|start|stop|clean|log|tail|help|version> [flags]",
+			"usage: jan <run|status|start|stop|restart|clean|log|tail|help|version> [flags]",
 		)
 	}
 
@@ -106,6 +106,8 @@ func run(args []string) error {
 		return startCmd(args[1:])
 	case "stop":
 		return stopCmd(args[1:])
+	case "restart":
+		return restartCmd(args[1:])
 	case "clean":
 		return cleanCmd(args[1:])
 	case "log":
@@ -133,6 +135,7 @@ func helpCmd(args []string) error {
 	fmt.Println("  run      run service in foreground (-c required)")
 	fmt.Println("  start    start daemonized service(s) (-c <file> or -d <dir>, default .)")
 	fmt.Println("  stop     stop daemonized service(s) (-c optional, default all)")
+	fmt.Println("  restart  restart daemonized service(s) (-c <file> or -d <dir>, default .)")
 	fmt.Println("  status   show service status (-c optional, default all)")
 	fmt.Println("  clean    clean jan files under /tmp (-f, --pid-only)")
 	fmt.Println("  log      show log directory/path info")
@@ -288,6 +291,39 @@ func stopCmd(args []string) error {
 
 	stopped, failed, err := daemon.StopAll()
 	fmt.Printf("stopped=%d failed=%d\n", stopped, failed)
+	if err != nil {
+		return wrapFail(exitCodeRuntime, "runtime error", err)
+	}
+
+	return nil
+}
+
+func restartCmd(args []string) error {
+	fs := flag.NewFlagSet("restart", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	configPath := fs.String("c", "", "path to config.yaml")
+	configDir := fs.String("d", "", "path to config directory")
+
+	if err := fs.Parse(args); err != nil {
+		return wrapFail(exitCodeUsage, "invalid arguments", err)
+	}
+	if *configPath != "" {
+		if *configDir != "" {
+			return fail(exitCodeUsage, "use either -c or -d, not both")
+		}
+		if err := daemon.Restart(*configPath); err != nil {
+			return wrapFail(exitCodeRuntime, "runtime error", err)
+		}
+		return nil
+	}
+
+	dir := *configDir
+	if dir == "" {
+		dir = "."
+	}
+
+	restarted, started, failed, err := daemon.RestartAll(dir)
+	fmt.Printf("restarted=%d started=%d failed=%d\n", restarted, started, failed)
 	if err != nil {
 		return wrapFail(exitCodeRuntime, "runtime error", err)
 	}

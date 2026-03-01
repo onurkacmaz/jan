@@ -142,6 +142,19 @@ func Stop(configPath string) error {
 	return stopByService(cfg.Name)
 }
 
+func Restart(configPath string) error {
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	if err := stopByService(cfg.Name); err != nil && !errors.Is(err, ErrDaemonNotRunning) {
+		return err
+	}
+
+	return Start(configPath)
+}
+
 func StopAll() (stopped, failed int, err error) {
 	paths, err := filepath.Glob("/tmp/jan_*.daemon.pid")
 	if err != nil {
@@ -314,6 +327,58 @@ func StartAll(dir string) (started, skipped, failed int, err error) {
 	}
 
 	return started, skipped, failed, nil
+}
+
+func RestartAll(dir string) (restarted, started, failed int, err error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := strings.ToLower(entry.Name())
+		if !strings.HasSuffix(name, ".yaml") && !strings.HasSuffix(name, ".yml") {
+			continue
+		}
+
+		configPath := filepath.Join(dir, entry.Name())
+		cfg, cfgErr := loadConfig(configPath)
+		if cfgErr != nil {
+			failed++
+			continue
+		}
+
+		wasRunning := false
+		stopErr := stopByService(cfg.Name)
+		if stopErr == nil {
+			wasRunning = true
+		} else if !errors.Is(stopErr, ErrDaemonNotRunning) {
+			failed++
+			continue
+		}
+
+		startErr := Start(configPath)
+		if startErr != nil {
+			failed++
+			continue
+		}
+
+		if wasRunning {
+			restarted++
+		} else {
+			started++
+		}
+	}
+
+	if failed > 0 {
+		return restarted, started, failed, fmt.Errorf("%d service(s) failed to restart", failed)
+	}
+
+	return restarted, started, failed, nil
 }
 
 func Status(configPath string) (ServiceStatus, error) {
