@@ -133,9 +133,9 @@ func helpCmd(args []string) error {
 	fmt.Println("")
 	fmt.Println("Commands:")
 	fmt.Println("  run      run service in foreground (-c required)")
-	fmt.Println("  start    start daemonized service(s) (-c <file> or -d <dir>, default .)")
+	fmt.Println("  start    start daemonized service(s) (-c <file> or -d <dir>, default /etc/jan)")
 	fmt.Println("  stop     stop daemonized service(s) (-c optional, default all)")
-	fmt.Println("  restart  restart daemonized service(s) (-c <file> or -d <dir>, default .)")
+	fmt.Println("  restart  restart daemonized service(s) (-c <file> or -d <dir>, default /etc/jan)")
 	fmt.Println("  status   show service status (-c optional, default all)")
 	fmt.Println("  clean    clean jan files under /tmp (-f, --pid-only)")
 	fmt.Println("  log      show log directory/path info")
@@ -319,7 +319,7 @@ func restartCmd(args []string) error {
 
 	dir := *configDir
 	if dir == "" {
-		dir = "."
+		dir = "/etc/jan"
 	}
 
 	restarted, started, failed, err := daemon.RestartAll(dir)
@@ -352,7 +352,7 @@ func startCmd(args []string) error {
 
 	dir := *configDir
 	if dir == "" {
-		dir = "."
+		dir = "/etc/jan"
 	}
 
 	started, skipped, failed, err := daemon.StartAll(dir)
